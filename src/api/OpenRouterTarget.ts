@@ -13,7 +13,7 @@ export async function queryOpenRouter(
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://github.com/cenkierpiotr/ai-query-runner',
+      'HTTP-Referer': 'https://github.com/cenkierpiotr/ai-query-runner2',
       'X-Title': 'AI Query Runner',
     },
     body:   JSON.stringify({ model, messages }),
