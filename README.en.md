@@ -487,6 +487,25 @@ Requires configuring Google API access — see the Configuration section (Servic
 
 ---
 
+## 🛠️ Tech stack
+
+| Technology | Role in the project |
+|------------|---------------------|
+| **Node.js 18+** | Runtime — HTTP server, processing logic, file operations |
+| **TypeScript** | Project language — static typing, compiled to JS |
+| **Express** | HTTP server for the web panel — REST API, session handling, routing |
+| **Playwright** | Browser automation — controls Chromium in browser mode |
+| **Chromium** | Browser for automation (bundled or installed via Playwright) |
+| **ExcelJS** | Reading and writing `.xlsx` files — template, row-by-row response saving |
+| **Bun** | Portable version compilation — `bun build --compile` produces a self-contained binary |
+| **tsx** | Runs TypeScript without compilation in development mode |
+| **bcrypt** | Password hashing for the panel (cost 12) |
+| **AES-256-GCM** | Encrypts API keys before writing to disk (built-in `crypto` module) |
+| **TOTP** | Two-factor authentication (2FA) — compatible with Google Authenticator / Authy |
+| **Google Sheets API** | Optional input/output via Google Sheets instead of an Excel file |
+
+---
+
 ## 💻 Advanced — console usage
 
 ```bash
