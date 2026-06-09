@@ -487,6 +487,25 @@ Wymaga skonfigurowania dostępu do Google API — patrz sekcja Konfiguracja (Ser
 
 ---
 
+## 🛠️ Stack technologiczny
+
+| Technologia | Rola w projekcie |
+|-------------|-----------------|
+| **Node.js 18+** | Środowisko uruchomieniowe — serwer HTTP, logika przetwarzania, operacje na plikach |
+| **TypeScript** | Język projektu — statyczne typowanie, kompilacja do JS |
+| **Express** | Serwer HTTP panelu webowego — REST API, obsługa sesji, routing |
+| **Playwright** | Automatyzacja przeglądarki — sterowanie Chromium w trybie przeglądarkowym |
+| **Chromium** | Przeglądarka do automatyzacji (bundlowana lub instalowana przez Playwright) |
+| **ExcelJS** | Odczyt i zapis plików `.xlsx` — template, zapis odpowiedzi wiersz po wierszu |
+| **Bun** | Kompilacja wersji portable — `bun build --compile` tworzy samodzielny binarny plik |
+| **tsx** | Uruchamianie TypeScript bez kompilacji w trybie deweloperskim |
+| **bcrypt** | Hashowanie hasła do panelu (koszt 12) |
+| **AES-256-GCM** | Szyfrowanie kluczy API przed zapisem na dysk (wbudowany moduł `crypto`) |
+| **TOTP** | Weryfikacja dwuskładnikowa (2FA) — standard kompatybilny z Google Authenticator / Authy |
+| **Google Sheets API** | Opcjonalne wejście/wyjście przez Google Arkusze zamiast pliku Excel |
+
+---
+
 ## 💻 Zaawansowane — użycie z konsoli
 
 ```bash
