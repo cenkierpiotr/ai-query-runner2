@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>AI Query Runner</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">🤖 <em>AI</em> Query Runner</div>
+  <div class="header-right">
+    <button class="settings-btn" id="btnSettings" onclick="openSettings()" title="Ustawienia">⚙️</button>
+    <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
+    <a class="lang-btn" href="https://github.com/cenkierpiotr/ai-query-runner#readme" target="_blank" rel="noopener" style="text-decoration:none">? Pomoc</a>
+    <div class="status-pill">
+      <div class="dot" id="dot"></div>
+      <span id="statusLabel" data-i18n="status.connecting">Łączenie...</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── MODE TABS ─────────────────────────────────────────────────── -->
+  <div class="mode-tabs" style="grid-column:1/-1;grid-row:0">
+    <button class="mode-tab active" id="tabRun"       onclick="switchMode('run')"       data-i18n="mode.run">📋 Uruchom zadanie</button>
+    <button class="mode-tab"        id="tabGenerator" onclick="switchMode('generator')" data-i18n="mode.generator">🧠 Generator zadań <span class="mode-tab-badge">AI</span></button>
+    <button class="mode-tab"        id="tabHistory"   onclick="switchMode('history')">📂 Historia</button>
+  </div>
+
+  <!-- ── STATUS ──────────────────────────────────────────────────── -->
+  <div class="card" style="grid-column:1;grid-row:1">
+    <div class="card-title" data-i18n="card.status">Status systemu</div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label" data-i18n="stat.target">Serwis AI</div><div class="stat-value" id="sTarget">—</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="stat.state">Stan</div><div class="stat-value" id="sState">—</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="stat.today">Zapytania dziś</div><div class="stat-value" id="sToday">—</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="stat.night">Cisza nocna</div><div class="stat-value" id="sNight">—</div></div>
+    </div>
+    <div class="quota-wrap">
+      <div class="quota-label">
+        <span data-i18n="stat.dailyLimit">Limit dzienny</span>
+        <span id="quotaTxt">0 / —</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" id="quotaBar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- ── LOG ─────────────────────────────────────────────────────── -->
+  <div class="card" style="grid-column:1;grid-row:2 / 4">
+    <div class="card-title">
+      Output
+      <span id="batchLabel" style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px"></span>
+      <button class="copy-log-btn" id="btnCopyLog" onclick="copyLog()" title="Kopiuj log">📋</button>
+    </div>
+    <div id="progressWrap" style="display:none;margin-bottom:14px">
+      <div class="quota-label">
+        <span id="progressTxt" data-i18n="progress.text">Przetwarzanie...</span>
+        <span id="progressCount"></span>
+      </div>
+      <div class="bar-track"><div class="bar-fill green" id="progressBar" style="width:0%"></div></div>
+    </div>
+    <div class="terminal" id="terminal"><span class="dim" data-i18n="terminal.empty">Brak aktywnego zadania...</span></div>
+  </div>
+
+  <!-- ── RUN ─────────────────────────────────────────────────────── -->
+  <div class="card" style="grid-column:2;grid-row:1 / 4">
+    <div class="card-title" data-i18n="card.run">Uruchom zadanie</div>
+
+    <!-- ─ Krok 1: Źródło danych ─ -->
+    <div class="step-head">
+      <span class="step-num">1</span>
+      <span class="step-text" data-i18n="step.source">Wybierz plik lub arkusz</span>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tabA" onclick="switchTab('excel')" data-i18n="tab.excel">📊 Plik Excel</button>
+      <button class="tab"        id="tabB" onclick="switchTab('sheets')" data-i18n="tab.sheets">🔗 Google Sheets</button>
+    </div>
+
+    <div class="tab-pane active" id="paneExcel">
+      <div class="dropzone" id="dropzone"
+           onclick="fileInput.click()"
+           ondragover="event.preventDefault();this.classList.add('over')"
+           ondragleave="this.classList.remove('over')"
+           ondrop="onDrop(event)">
+        <div class="dropzone-icon">📂</div>
+        <p>
+          <strong data-i18n="dropzone.title">Przeciągnij plik Excel tutaj</strong>
+          <span data-i18n="dropzone.sub">lub kliknij, aby wybrać</span>
+        </p>
+        <div class="file-name" id="fileName"></div>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="onFileChange(this)">
+      <a href="/api/template" download class="template-link" data-i18n="link.template">⬇ Pobierz przykładowy szablon Excel</a>
+    </div>
+
+    <div class="tab-pane" id="paneSheets">
+      <div class="field">
+        <label data-i18n="sheets.idLabel">ID arkusza Google Sheets</label>
+        <input type="text" id="sheetsRef" data-i18n-placeholder="sheets.idPlaceholder" placeholder="sheets:SPREADSHEET_ID:Sheet1!A:D">
+        <p class="hint"><span data-i18n="sheets.formatHint">Format:</span> <code>sheets:SPREADSHEET_ID:NazwaArkusza!A:D</code></p>
+      </div>
+      <div class="field">
+        <label data-i18n="sheets.outLabel">Arkusz wyjściowy (opcjonalnie)</label>
+        <input type="text" id="sheetsOut" data-i18n-placeholder="sheets.outPlaceholder" placeholder="= ten sam co wejściowy">
+      </div>
+    </div>
+
+    <div class="step-sep"></div>
+
+    <!-- ─ Krok 2: Serwis AI ─ -->
+    <div class="step-head">
+      <span class="step-num">2</span>
+      <span class="step-text" data-i18n="step.ai">Wybierz serwis AI</span>
+    </div>
+
+    <div class="field">
+      <select id="target" onchange="updateAbMode()">
+        <optgroup label="🤖 Modele AI (wymagają przeglądarki + logowania)">
+          <option value="gemini">🔵 Gemini (Google)</option>
+          <option value="perplexity">🟣 Perplexity</option>
+          <option value="claude">🟠 Claude (Anthropic)</option>
+          <option value="copilot">🪟 Copilot (Microsoft)</option>
+          <option value="mistral">⚡ Mistral Le Chat</option>
+          <option value="deepseek">🐋 DeepSeek</option>
+        </optgroup>
+        <optgroup label="🔍 Wyszukiwarki (przeglądarka)">
+          <option value="google">🔍 Google Search</option>
+        </optgroup>
+        <optgroup label="⚡ API (bez przeglądarki)">
+          <option value="duckduckgo">🦆 DuckDuckGo (bez klucza API)</option>
+          <option value="google-api">🔑 Google Search API (100/dzień gratis)</option>
+        </optgroup>
+      </select>
+      <div id="targetHint" class="hint target-hint" style="display:none;margin-top:8px"></div>
+    </div>
+
+    <div id="abModeWrap" style="display:none;margin-bottom:14px">
+      <div class="field" style="margin-bottom:4px">
+        <label data-i18n="ab.label">Porównaj z innymi serwisami A/B (opcjonalnie)</label>
+        <input type="text" id="abTargets" data-i18n-placeholder="ab.placeholder" placeholder="np. deepseek,mistral">
+      </div>
+      <p class="hint" data-i18n="ab.hint">Wyniki każdego serwisu trafią do osobnych kolumn w pliku.</p>
+    </div>
+
+    <div class="step-sep"></div>
+
+    <!-- ─ Krok 3: Instrukcje ─ -->
+    <div class="step-head">
+      <span class="step-num">3</span>
+      <span class="step-text" data-i18n="step.instructions">Instrukcje dla AI (opcjonalne)</span>
+    </div>
+
+    <div class="field">
+      <textarea id="systemPrompt" rows="3"
+        data-i18n-placeholder="field.sysPromptPlaceholder"
+        placeholder="Np. Przetłumacz na polski i sformatuj wynik zwięźle... (opcjonalnie)"
+        class="sys-prompt-area"></textarea>
+      <div class="prompt-footer">
+        <div id="templateVarHint" class="hint template-var-hint" style="display:none" data-i18n-html="hint.templateVars">
+          💡 Zmienne: <code>{{A}}</code> = kol. A, <code>{{B}}</code> = kol. B, <code>{{C}}</code> = kol. C
+        </div>
+        <span class="char-counter" id="charCount">0</span>
+      </div>
+    </div>
+
+    <div class="step-sep"></div>
+
+    <!-- ─ Opcje zaawansowane (zwinięte) ─ -->
+    <details class="advanced-section" id="advancedDetails">
+      <summary class="advanced-summary">
+        <span data-i18n="step.advanced">⚙️ Opcje zaawansowane</span>
+        <span class="adv-arrow">▸</span>
+      </summary>
+      <div class="advanced-body">
+
+        <div class="adv-section-label" data-i18n="adv.behavior">Zachowanie</div>
+        <div class="options-row options-row-tall" style="margin-bottom:12px">
+          <label class="toggle-label toggle-label-tall">
+            <input type="checkbox" id="chkSkipDone">
+            <div>
+              <span data-i18n="opt.skipDone">Pomiń ukończone</span>
+              <div class="toggle-hint" data-i18n="hint.skipDone">Pomija wiersze ze statusem "done". Przydatne przy wznawianiu przerwanego zadania.</div>
+            </div>
+          </label>
+          <label class="toggle-label toggle-label-tall">
+            <input type="checkbox" id="chkHeadless">
+            <div>
+              <span data-i18n="opt.headless">Ukryta przeglądarka</span>
+              <div class="toggle-hint" data-i18n="hint.headless">Przeglądarka działa w tle bez okna. Zalecane po pierwszym logowaniu.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="adv-section-label" data-i18n="adv.format">Format odpowiedzi</div>
+        <div class="options-row options-row-tall" style="margin-bottom:12px">
+          <label class="toggle-label toggle-label-tall">
+            <input type="checkbox" id="chkStripMarkdown">
+            <div>
+              <span data-i18n="opt.stripMarkdown">Usuń formatowanie</span>
+              <div class="toggle-hint" data-i18n="hint.stripMarkdown">Usuwa z odpowiedzi **pogrubienie**, ## nagłówki, `kod` i inne znaczniki Markdown — zostawia czysty tekst.</div>
+            </div>
+          </label>
+          <label class="toggle-label toggle-label-tall">
+            <input type="checkbox" id="chkJsonFormat">
+            <div>
+              <span data-i18n="opt.json">Rozbij JSON na kolumny</span>
+              <div class="toggle-hint" data-i18n-html="hint.json">Gdy AI zwróci JSON (np. <code>{"Imie":"Jan","Wiek":30}</code>), każde pole stanie się osobną kolumną w pliku.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="adv-section-label" data-i18n="adv.export">Eksport dodatkowy</div>
+        <div class="options-row options-row-tall" style="margin-bottom:12px">
+          <label class="toggle-label toggle-label-tall">
+            <input type="checkbox" id="chkExportCsv">
+            <div>
+              <span data-i18n="opt.exportCsv">📄 Eksport CSV</span>
+              <div class="toggle-hint" data-i18n="hint.exportCsv">Tworzy plik .csv obok pliku Excel — otwieralny w każdym arkuszu kalkulacyjnym.</div>
+            </div>
+          </label>
+          <label class="toggle-label toggle-label-tall">
+            <input type="checkbox" id="chkExportJson">
+            <div>
+              <span data-i18n="opt.exportJson">📋 Eksport JSON</span>
+              <div class="toggle-hint" data-i18n="hint.exportJson">Tworzy plik .json obok pliku Excel — do integracji z innymi aplikacjami.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="adv-section-label" data-i18n="adv.limit">Limit wierszy</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <input type="number" id="limitRows" placeholder="0" min="0" style="width:90px;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.88rem;outline:none;">
+          <span class="hint" data-i18n="hint.limit">0 = przetwórz wszystkie wiersze</span>
+        </div>
+
+        <div class="adv-section-label" data-i18n="adv.schedule">Harmonogram i przerwy</div>
+        <div class="section-group">
+          <div class="field" style="margin-bottom:12px">
+            <label data-i18n="schedule.days">Aktywne dni tygodnia</label>
+            <div class="day-picker" id="dayPicker">
+              <button type="button" class="day-btn active" data-day="1" onclick="toggleDay(this)">Pn</button>
+              <button type="button" class="day-btn active" data-day="2" onclick="toggleDay(this)">Wt</button>
+              <button type="button" class="day-btn active" data-day="3" onclick="toggleDay(this)">Śr</button>
+              <button type="button" class="day-btn active" data-day="4" onclick="toggleDay(this)">Cz</button>
+              <button type="button" class="day-btn active" data-day="5" onclick="toggleDay(this)">Pt</button>
+              <button type="button" class="day-btn" data-day="6" onclick="toggleDay(this)">Sob</button>
+              <button type="button" class="day-btn" data-day="0" onclick="toggleDay(this)">Nd</button>
+            </div>
+            <input type="hidden" id="schDays" value="1,2,3,4,5">
+          </div>
+          <div class="options-row" style="margin-bottom:10px">
+            <div class="field" style="margin-bottom:0">
+              <label data-i18n="schedule.start">Praca od godziny</label>
+              <input type="number" id="schStart" placeholder="7" min="0" max="23" style="width:100%">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label data-i18n="schedule.end">Do godziny</label>
+              <input type="number" id="schEnd" placeholder="23" min="0" max="23" style="width:100%">
+            </div>
+          </div>
+          <div class="options-row" style="margin-bottom:0">
+            <div class="field" style="margin-bottom:0">
+              <label data-i18n="schedule.pauseMin">Min. przerwa (sek)</label>
+              <input type="number" id="pauseMin" placeholder="5" min="0" style="width:100%">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label data-i18n="schedule.pauseMax">Max. przerwa (sek)</label>
+              <input type="number" id="pauseMax" placeholder="15" min="0" style="width:100%">
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /advanced-body -->
+    </details>
+
+    <!-- ─ Tryb podglądu ─ -->
+    <div style="margin-bottom:12px">
+      <label class="toggle-label toggle-label-tall">
+        <input type="checkbox" id="chkPreview">
+        <div>
+          <span data-i18n="opt.preview">Tryb podglądu — tylko 3 wiersze</span>
+          <div class="toggle-hint" data-i18n="hint.preview">Przetworzy wyłącznie 3 pierwsze wiersze. Sprawdź wyniki przed puszczeniem całego pliku.</div>
+        </div>
+      </label>
+    </div>
+
+    <!-- ─ Przyciski akcji ─ -->
+    <div class="run-actions">
+      <button class="btn btn-primary btn-run" id="btnRun" onclick="startBatch()" data-i18n="btn.run">▶ Uruchom</button>
+      <div class="run-controls" id="runControls" style="display:none">
+        <button class="btn btn-warning" id="btnPause" onclick="togglePause()" data-i18n="btn.pause">⏸ Pauza</button>
+        <button class="btn btn-danger"  id="btnStop"  onclick="stopBatch()"  data-i18n="btn.stop">⏹ Zatrzymaj</button>
+      </div>
+      <a class="btn btn-success" id="btnDownloadResult" href="/api/download-result" download="wyniki.xlsx" style="display:none">⬇ Pobierz wyniki (.xlsx)</a>
+      <div class="config-bar">
+        <span class="config-saved-label" id="configSavedLabel"></span>
+        <button class="config-reset-btn" onclick="resetConfig()" data-i18n="btn.resetConfig">↩ Przywróć domyślne</button>
+      </div>
+    </div>
+
+  </div><!-- /card run -->
+
+  <!-- ── GENERATOR CARD ────────────────────────────────────────────── -->
+  <div class="card generator-card" id="generatorCard" style="display:none;grid-column:1/-1">
+    <div class="generator-intro">
+      <div class="generator-intro-title" data-i18n="gen.title">🧠 Generator zadań</div>
+      <p class="generator-intro-desc" data-i18n="gen.desc">Opisz co chcesz osiągnąć — AI przygotuje dla Ciebie gotową listę promptów dopasowaną do wybranego serwisu. Możesz przejrzeć i edytować wynik przed uruchomieniem.</p>
+      <ol class="generator-steps" style="color:var(--text-muted);font-size:.82rem;margin-top:8px;padding-left:18px;line-height:1.7">
+        <li>Opisz intencję i wybierz gdzie trafią zadania</li>
+        <li>Kliknij <strong>✨ Generuj prompty</strong></li>
+        <li>Przejrzyj i edytuj listę w tabeli po prawej</li>
+        <li>Kliknij <strong>▶ Uruchom zadanie</strong> lub <strong>⬇ Pobierz Excel</strong></li>
+      </ol>
+    </div>
+
+    <div class="generator-body">
+
+      <!-- Left column: inputs -->
+      <div class="generator-inputs">
+
+        <div class="gen-field">
+          <label data-i18n="gen.intentLabel">Twoja intencja</label>
+          <textarea id="genIntent" rows="4" data-i18n-placeholder="gen.intentPlaceholder"
+            placeholder="Np. Znajdź firmy zajmujące się produkcją kredek w 20 największych miastach Polski. Zwróć nazwę firmy, NIP, adres i telefon."></textarea>
+        </div>
+
+        <div class="gen-row-2col">
+          <div class="gen-field">
+            <label data-i18n="gen.targetLabel">Serwis docelowy (gdzie trafią zadania)</label>
+            <select id="genTarget">
+              <option value="gemini">Gemini (przeglądarka)</option>
+              <option value="perplexity">Perplexity (przeglądarka)</option>
+              <option value="claude">Claude (przeglądarka)</option>
+              <option value="gemini-api">Gemini API (bezpośredni)</option>
+              <option value="openrouter">OpenRouter API (bezpośredni)</option>
+              <option value="google-api">Google Search API</option>
+              <option value="duckduckgo">DuckDuckGo</option>
+            </select>
+          </div>
+          <div class="gen-field">
+            <label data-i18n="gen.providerLabel">Model AI do generowania listy</label>
+            <select id="genProvider" onchange="onGenProviderChange()">
+              <option value="gemini-api">Gemini API</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="groq">Groq</option>
+              <option value="xai">xAI / Grok</option>
+              <option value="ollama">Ollama (lokalny)</option>
+              <option value="custom">Własny endpoint</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="gen-field gen-model-field" id="genModelWrap">
+          <label data-i18n="gen.modelLabel">Model (opcjonalnie)</label>
+          <div class="model-select-wrap">
+            <select id="genModelSelect" onchange="onGenModelSelectChange(this)" style="flex:1">
+              <option value="">— domyślny —</option>
+            </select>
+            <input type="text" id="genModelCustom" placeholder="wpisz nazwę modelu..." autocomplete="off" style="display:none;flex:1">
+            <button type="button" class="btn-load-models" id="btnLoadGenModels" onclick="loadModelsForGenerator()" title="Pobierz listę modeli">↻</button>
+          </div>
+          <span class="gen-model-hint" data-i18n="gen.modelHint">Zostaw puste — użyje domyślnego modelu z ustawień.</span>
+          <div class="gen-internet-notice" data-i18n="gen.internetNotice">⚠️ Generowanie promptów nie wymaga internetu — to zwykłe zadanie dla LLM. Pamiętaj jednak, że <strong>wybrany target</strong> może nie mieć dostępu do aktualnych danych, jeśli nie jest wyszukiwarką.</div>
+        </div>
+
+        <div class="gen-field" style="margin-top:10px">
+          <label>Format odpowiedzi w promptach</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="genOutputFormat" style="flex:1">
+              <option value="auto">🤖 Automatyczny (AI dobiera optymalny)</option>
+              <option value="json">{ } JSON — tablice i obiekty</option>
+              <option value="text">📝 Czysty tekst / lista punktowana</option>
+              <option value="table">📊 Tabela Markdown</option>
+              <option value="csv">📄 CSV — wartości oddzielone przecinkiem</option>
+              <option value="none">∅ Bez instrukji formatu (dla wyszukiwarek)</option>
+            </select>
+          </div>
+          <span class="gen-model-hint">Wybrany format zostanie dołączony do każdego wygenerowanego promptu.</span>
+        </div>
+
+        <button class="btn-generate" id="btnGenerate" onclick="runGenerator()">
+          <span class="btn-generate-icon">✨</span>
+          <span data-i18n="gen.btnGenerate">Generuj prompty</span>
+        </button>
+
+      </div><!-- /generator-inputs -->
+
+      <!-- Right column: preview -->
+      <div class="generator-preview" id="generatorPreview">
+        <div class="gen-preview-empty" id="genPreviewEmpty">
+          <span data-i18n="gen.previewEmpty">Wygenerowane prompty pojawią się tutaj.</span>
+        </div>
+        <div id="genPreviewContent" style="display:none">
+          <div class="gen-preview-header">
+            <span class="gen-preview-count" id="genPreviewCount"></span>
+            <div class="gen-preview-actions">
+              <button class="btn btn-secondary" onclick="downloadGeneratedExcel()" data-i18n="gen.btnDownload">⬇ Pobierz Excel</button>
+              <button class="btn btn-primary"   onclick="runGeneratedTask()"      data-i18n="gen.btnRun">▶ Uruchom zadanie</button>
+            </div>
+          </div>
+          <div class="gen-preview-table-wrap">
+            <table class="gen-preview-table" id="genPreviewTable">
+              <thead><tr><th>#</th><th data-i18n="gen.colPrompt">Prompt</th></tr></thead>
+              <tbody id="genPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="gen-error" id="genError" style="display:none"></div>
+        <div class="gen-spinner" id="genSpinner" style="display:none">
+          <span data-i18n="gen.generating">Generuję prompty…</span>
+        </div>
+      </div><!-- /generator-preview -->
+
+    </div><!-- /generator-body -->
+  </div><!-- /generator-card -->
+
+  <!-- ── HISTORY CARD ──────────────────────────────────────────────── -->
+  <div class="card" id="historyCard" style="display:none;grid-column:1/-1">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+      📂 Historia uruchomień
+      <button class="btn btn-secondary" style="font-size:.78rem;padding:5px 12px" onclick="loadHistory()">↻ Odśwież</button>
+    </div>
+    <p style="color:var(--text-dim);font-size:.82rem;margin:0 0 16px">
+      Wszystkie zakończone zadania. Pliki wynikowe są przechowywane na serwerze do czasu ręcznego usunięcia.
+    </p>
+    <div id="historyEmpty" style="display:none;color:var(--text-dim);text-align:center;padding:40px 0;font-size:.9rem">
+      Brak historii uruchomień.
+    </div>
+    <table id="historyTable" style="display:none;width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);color:var(--text-dim)">
+          <th style="text-align:left;padding:6px 10px;font-weight:500">Data i czas</th>
+          <th style="text-align:left;padding:6px 10px;font-weight:500">Target</th>
+          <th style="text-align:left;padding:6px 10px;font-weight:500">Plik / źródło</th>
+          <th style="text-align:right;padding:6px 10px;font-weight:500">Wyniki</th>
+          <th style="text-align:center;padding:6px 10px;font-weight:500">Status</th>
+          <th style="text-align:center;padding:6px 10px;font-weight:500">Pobierz</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+  </div><!-- /history-card -->
+
+</main>
+
+<script src="/app.js"></script>
+
+<!-- ── SETTINGS MODAL ──────────────────────────────────────────── -->
+<div id="settingsOverlay" class="modal-overlay" onclick="closeSettings(event)" style="display:none">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span data-i18n="settings.title">⚙️ Ustawienia</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-secondary" style="padding:5px 12px;font-size:.8rem" onclick="logout()" title="Wyloguj się">↩ Wyloguj</button>
+        <button class="modal-close" onclick="closeSettings()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Settings tabs -->
+      <div class="stabs">
+        <button class="stab active" data-stab="api"      onclick="switchSettingsTab('api')">🔑 Klucze API</button>
+        <button class="stab"        data-stab="behavior" onclick="switchSettingsTab('behavior')">⚙️ Zachowanie</button>
+        <button class="stab"        data-stab="export"   onclick="switchSettingsTab('export')">💾 Eksport i baza</button>
+        <button class="stab"        data-stab="security" onclick="switchSettingsTab('security')">🔐 Bezpieczeństwo</button>
+      </div>
+
+      <!-- Tab 1: API Keys -->
+      <div class="stab-pane active" data-stab="api">
+
+        <!-- Gemini -->
+        <div class="api-provider-card">
+          <div class="api-provider-card-header">
+            <span class="api-provider-name">Gemini API</span>
+            <span class="api-provider-desc">Wymagany do Generatora zadań i targetu gemini-api. Klucz na <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>.</span>
+          </div>
+          <div class="settings-row">
+            <label for="sGeminiKey" data-i18n="settings.geminiKey">Gemini API Key</label>
+            <div class="input-secret-wrap">
+              <input type="password" id="sGeminiKey" autocomplete="off" placeholder="AIza...">
+              <button type="button" class="btn-reveal" onclick="toggleReveal('sGeminiKey',this)">👁</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="sGeminiModel" data-i18n="settings.geminiModel">Domyślny model Gemini API</label>
+            <div class="model-select-wrap">
+              <input type="text" id="sGeminiModel" placeholder="gemini-2.0-flash" list="geminiModelList" autocomplete="off">
+              <datalist id="geminiModelList"></datalist>
+              <button type="button" class="btn-load-models" onclick="loadModels('gemini-api')" title="Pobierz listę modeli">↻</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- OpenRouter -->
+        <div class="api-provider-card">
+          <div class="api-provider-card-header">
+            <span class="api-provider-name">OpenRouter API</span>
+            <span class="api-provider-desc">Dostęp do setek modeli przez jedno API. Klucz na <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai</a>.</span>
+          </div>
+          <div class="settings-row">
+            <label for="sOpenRouterKey" data-i18n="settings.openRouterKey">OpenRouter API Key</label>
+            <div class="input-secret-wrap">
+              <input type="password" id="sOpenRouterKey" autocomplete="off" placeholder="sk-or-...">
+              <button type="button" class="btn-reveal" onclick="toggleReveal('sOpenRouterKey',this)">👁</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="sOpenRouterModel" data-i18n="settings.openRouterModel">Domyślny model OpenRouter</label>
+            <div class="model-select-wrap">
+              <input type="text" id="sOpenRouterModel" placeholder="google/gemini-2.0-flash-exp:free" list="openRouterModelList" autocomplete="off">
+              <datalist id="openRouterModelList"></datalist>
+              <button type="button" class="btn-load-models" onclick="loadModels('openrouter')" title="Pobierz listę modeli">↻</button>
+            </div>
+          </div>
+          <div class="settings-notice">
+            ⚠️ <span data-i18n="settings.internetWarning">Nie wszystkie modele mają dostęp do internetu. Modele bez web search bazują wyłącznie na wiedzy z treningu — wyniki mogą być nieaktualne lub nieprecyzyjne. Sprawdź dokumentację modelu przed użyciem do wyszukiwania danych.</span>
+          </div>
+        </div>
+
+        <!-- Groq -->
+        <div class="api-provider-card">
+          <div class="api-provider-card-header">
+            <span class="api-provider-name">Groq</span>
+            <span class="api-provider-desc">Bardzo szybkie wnioskowanie. Darmowy tier na <a href="https://console.groq.com" target="_blank">console.groq.com</a>.</span>
+          </div>
+          <div class="settings-row">
+            <label for="sGroqKey">Klucz API Groq</label>
+            <div class="input-secret-wrap">
+              <input type="password" id="sGroqKey" autocomplete="off" placeholder="gsk_...">
+              <button type="button" class="btn-reveal" onclick="toggleReveal('sGroqKey',this)" title="Pokaż/ukryj">👁</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="sGroqModel">Domyślny model</label>
+            <input type="text" id="sGroqModel" placeholder="llama-3.3-70b-versatile">
+          </div>
+        </div>
+
+        <!-- xAI -->
+        <div class="api-provider-card">
+          <div class="api-provider-card-header">
+            <span class="api-provider-name">xAI / Grok</span>
+            <span class="api-provider-desc">Modele Grok-3 i Grok-2. Klucz na <a href="https://console.x.ai" target="_blank">console.x.ai</a>.</span>
+          </div>
+          <div class="settings-row">
+            <label for="sXaiKey">Klucz API xAI</label>
+            <div class="input-secret-wrap">
+              <input type="password" id="sXaiKey" autocomplete="off" placeholder="xai-...">
+              <button type="button" class="btn-reveal" onclick="toggleReveal('sXaiKey',this)" title="Pokaż/ukryj">👁</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="sXaiModel">Domyślny model</label>
+            <input type="text" id="sXaiModel" placeholder="grok-3-mini">
+          </div>
+        </div>
+
+        <!-- Google API -->
+        <div class="api-provider-card">
+          <div class="api-provider-card-header">
+            <span class="api-provider-name">Google API</span>
+            <span class="api-provider-desc">Wymagane do targetu google-api i Google Sheets.</span>
+          </div>
+          <div class="settings-row">
+            <label for="sGoogleKey" data-i18n="settings.googleKey">Google API Key</label>
+            <div class="input-secret-wrap">
+              <input type="password" id="sGoogleKey" autocomplete="off" placeholder="AIza...">
+              <button type="button" class="btn-reveal" onclick="toggleReveal('sGoogleKey',this)">👁</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="sGoogleCse" data-i18n="settings.googleCse">Google CSE ID (Search Engine ID)</label>
+            <input type="text" id="sGoogleCse" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxx">
+          </div>
+          <div class="settings-row">
+            <label for="sServiceAccount" data-i18n="settings.serviceAccount">Service Account JSON (Google Sheets)</label>
+            <textarea id="sServiceAccount" rows="3" autocomplete="off" placeholder='{"type":"service_account","project_id":"..."}'></textarea>
+          </div>
+        </div>
+
+        <!-- Ollama -->
+        <div class="api-provider-card">
+          <div class="api-provider-card-header">
+            <span class="api-provider-name">Ollama</span>
+            <span class="api-provider-desc">Lokalna lub zdalna instancja. Nie wymaga klucza API — pełna prywatność danych.</span>
+          </div>
+          <div class="settings-row">
+            <label for="sOllamaUrl">URL serwera Ollama</label>
+            <input type="text" id="sOllamaUrl" placeholder="http://localhost:11434">
+          </div>
+          <div class="settings-row">
+            <label for="sOllamaModel">Domyślny model</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="text" id="sOllamaModel" placeholder="np. llama3.2, qwen3.5:4b" style="flex:1">
+              <button type="button" class="btn-secondary" style="white-space:nowrap" onclick="loadOllamaModels()">Odśwież listę</button>
+            </div>
+          </div>
+          <div id="ollamaModelList" style="display:none;margin-top:4px">
+            <p class="settings-hint" style="margin:0 0 4px">Dostępne modele:</p>
+            <div id="ollamaModelChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          </div>
+        </div>
+
+        <!-- Custom endpoint -->
+        <div class="api-provider-card">
+          <div class="api-provider-card-header">
+            <span class="api-provider-name">Własny endpoint (OpenAI-compatible)</span>
+            <span class="api-provider-desc">LM Studio, vLLM, llama.cpp, Anthropic, Mistral i inne. URL bez <code>/chat/completions</code>.</span>
+          </div>
+          <div class="settings-row">
+            <label for="sCustomEndpointUrl">URL endpointu</label>
+            <input type="text" id="sCustomEndpointUrl" placeholder="np. https://api.anthropic.com/v1 lub http://localhost:1234/v1">
+          </div>
+          <div class="settings-row">
+            <label for="sCustomEndpointKey">Klucz API <span class="settings-optional">(jeśli wymagany)</span></label>
+            <div class="input-secret-wrap">
+              <input type="password" id="sCustomEndpointKey" autocomplete="off" placeholder="sk-ant-... / gsk_... / opcjonalny">
+              <button type="button" class="btn-reveal" onclick="toggleReveal('sCustomEndpointKey',this)" title="Pokaż/ukryj">👁</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="sCustomEndpointModel">Nazwa modelu</label>
+            <input type="text" id="sCustomEndpointModel" placeholder="np. claude-opus-4-8, mistral-large-latest, gpt-4o">
+          </div>
+        </div>
+
+      </div><!-- /stab-pane api -->
+
+      <!-- Tab 2: Behavior -->
+      <div class="stab-pane" data-stab="behavior">
+
+        <div class="settings-section">
+          <div class="settings-section-title" data-i18n="settings.section.limits">Limity</div>
+          <div class="settings-row">
+            <label for="sDailyLimit" data-i18n="settings.dailyLimit">Maksymalna liczba zapytań dziennie</label>
+            <input type="number" id="sDailyLimit" min="1" max="9999" step="1">
+          </div>
+          <div class="settings-row">
+            <label for="sMaxChars" data-i18n="settings.maxChars">Limit długości odpowiedzi (0 = bez limitu)</label>
+            <input type="number" id="sMaxChars" min="0" step="100">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title" data-i18n="settings.section.pauses">Przerwy między zapytaniami</div>
+          <div class="settings-row settings-row-2col">
+            <div>
+              <label for="sPauseMin" data-i18n="settings.pauseMin">Minimalna (sekundy)</label>
+              <input type="number" id="sPauseMin" min="1" max="300" step="1">
+            </div>
+            <div>
+              <label for="sPauseMax" data-i18n="settings.pauseMax">Maksymalna (sekundy)</label>
+              <input type="number" id="sPauseMax" min="1" max="300" step="1">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title" data-i18n="settings.section.night">Cisza nocna</div>
+          <p class="settings-hint" data-i18n="settings.nightHint">Narzędzie nie wysyła zapytań w godzinach ciszy nocnej.</p>
+          <div class="settings-row settings-row-2col">
+            <div>
+              <label for="sNightStart" data-i18n="settings.nightStart">Od godziny</label>
+              <input type="number" id="sNightStart" min="0" max="23" step="1">
+            </div>
+            <div>
+              <label for="sNightEnd" data-i18n="settings.nightEnd">Do godziny</label>
+              <input type="number" id="sNightEnd" min="0" max="23" step="1">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title" data-i18n="settings.section.retry">Ponowne próby przy błędzie</div>
+          <div class="settings-row settings-row-2col">
+            <div>
+              <label for="sRetryCount" data-i18n="settings.retryCount">Liczba prób</label>
+              <input type="number" id="sRetryCount" min="0" max="10" step="1">
+            </div>
+            <div>
+              <label for="sRetryDelay" data-i18n="settings.retryDelay">Przerwa między próbami (sekundy)</label>
+              <input type="number" id="sRetryDelay" min="1" max="300" step="1">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title" data-i18n="settings.section.browser">Przeglądarka</div>
+          <div class="settings-row settings-row-checks">
+            <label class="toggle-label">
+              <input type="checkbox" id="sHeadless">
+              <span data-i18n="settings.headless">Tryb headless (przeglądarka w tle, niewidoczna)</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="sStripMd">
+              <span data-i18n="settings.stripMd">Usuń formatowanie Markdown z odpowiedzi</span>
+            </label>
+          </div>
+        </div>
+
+      </div><!-- /stab-pane behavior -->
+
+      <!-- Tab 3: Export & DB -->
+      <div class="stab-pane" data-stab="export">
+
+        <div class="settings-section">
+          <div class="settings-section-title">Zewnętrzna baza danych <span class="settings-optional">(opcjonalne)</span></div>
+          <p class="settings-hint">Jeśli chcesz, żeby wyniki były automatycznie zapisywane w bazie danych — wpisz dane połączenia. Connection string jest szyfrowany przed zapisem.</p>
+          <div class="settings-row">
+            <label for="sDbType">Typ bazy</label>
+            <select id="sDbType">
+              <option value="">— wyłączone —</option>
+              <option value="postgres">PostgreSQL</option>
+              <option value="mysql">MySQL / MariaDB</option>
+              <option value="mongodb">MongoDB</option>
+              <option value="sqlite">SQLite (lokalny plik)</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <label for="sDbUrl">Connection string / ścieżka do pliku</label>
+            <div class="input-secret-wrap">
+              <input type="password" id="sDbUrl" autocomplete="off" placeholder="np. postgres://user:pass@localhost:5432/mydb">
+              <button type="button" class="btn-reveal" onclick="toggleReveal('sDbUrl',this)" title="Pokaż/ukryj">👁</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="sDbTable">Nazwa tabeli / kolekcji</label>
+            <input type="text" id="sDbTable" placeholder="np. ai_results">
+          </div>
+          <p class="settings-hint" style="margin-top:10px">💾 Wyniki są automatycznie zapisywane do pliku Excel. Baza danych to opcja dodatkowa.</p>
+        </div>
+
+      </div><!-- /stab-pane export -->
+
+      <!-- Tab 4: Security -->
+      <div class="stab-pane" data-stab="security">
+
+        <div class="settings-section">
+          <div class="settings-section-title">Zmiana hasła</div>
+          <div class="settings-row">
+            <label for="sCurrentPw">Aktualne hasło</label>
+            <input type="password" id="sCurrentPw" autocomplete="current-password" placeholder="Wpisz aktualne hasło">
+          </div>
+          <div class="settings-row settings-row-2col">
+            <div>
+              <label for="sNewPw">Nowe hasło</label>
+              <input type="password" id="sNewPw" autocomplete="new-password" placeholder="Minimum 8 znaków">
+            </div>
+            <div>
+              <label for="sNewPw2">Powtórz nowe hasło</label>
+              <input type="password" id="sNewPw2" autocomplete="new-password" placeholder="Powtórz hasło">
+            </div>
+          </div>
+          <button class="btn btn-secondary" style="width:100%" onclick="changePassword()">Zmień hasło</button>
+          <span id="pwChangeMsg" style="font-size:.8rem;display:block;margin-top:6px;min-height:18px"></span>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Weryfikacja dwuskładnikowa (2FA)</div>
+          <p class="settings-hint">Po włączeniu każde logowanie wymaga dodatkowo 6-cyfrowego kodu z aplikacji uwierzytelniającej (Google Authenticator, Authy itp.).</p>
+          <div id="totp2faStatus" class="settings-hint" style="margin-bottom:10px">— sprawdzanie...</div>
+
+          <div id="totp2faSetup" style="display:none">
+            <p class="settings-hint" style="margin-bottom:10px">Zeskanuj kod QR aplikacją, następnie wpisz 6-cyfrowy kod żeby potwierdzić że wszystko działa.</p>
+            <div style="text-align:center;margin-bottom:10px">
+              <img id="settingsTotpQr" width="160" height="160" style="background:#fff;padding:6px;border-radius:6px;display:inline-block">
+            </div>
+            <div style="font-family:monospace;font-size:.8rem;color:var(--text-muted);background:rgba(0,0,0,.3);padding:8px 10px;border-radius:6px;word-break:break-all;margin-bottom:12px" id="settingsTotpSecret"></div>
+            <div class="settings-row">
+              <label for="settingsTotpCode">Kod z aplikacji (potwierdź)</label>
+              <input type="text" id="settingsTotpCode" inputmode="numeric" maxlength="6" placeholder="000000" style="letter-spacing:.3em;text-align:center;font-size:1.1rem">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn btn-primary" style="flex:1" onclick="confirmEnableTotp()">Aktywuj 2FA</button>
+              <button class="btn btn-secondary" style="flex:1" onclick="cancelTotpSetup()">Anuluj</button>
+            </div>
+          </div>
+
+          <div id="totp2faBtns" style="margin-top:8px">
+            <button id="btnEnableTotp"  class="btn btn-secondary" style="width:100%;display:none" onclick="beginTotpSetup()">Włącz weryfikację 2FA</button>
+            <button id="btnDisableTotp" class="btn btn-secondary" style="width:100%;display:none" onclick="disableTotp2fa()">Wyłącz weryfikację 2FA</button>
+          </div>
+          <span id="totpMsg" style="font-size:.8rem;display:block;margin-top:6px;min-height:18px"></span>
+        </div>
+
+      </div><!-- /stab-pane security -->
+
+    </div><!-- /modal-body -->
+    <div class="modal-footer">
+      <span class="settings-saved-label" id="settingsSavedLabel"></span>
+      <button class="btn btn-secondary" onclick="closeSettings()" data-i18n="settings.cancel">Anuluj</button>
+      <button class="btn btn-primary" onclick="saveSettingsForm()" data-i18n="settings.save">Zapisz ustawienia</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

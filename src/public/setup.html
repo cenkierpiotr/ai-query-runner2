@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Query Runner — pierwsze uruchomienie</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    }
+    .logo { text-align: center; margin-bottom: 28px; }
+    .logo h1 { color: #f1f5f9; font-size: 1.25rem; font-weight: 600; }
+    .logo p  { color: #64748b; font-size: .85rem; margin-top: 4px; }
+    label { display: block; color: #94a3b8; font-size: .8rem; font-weight: 500;
+            text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+    input[type="password"], input[type="text"] {
+      width: 100%; padding: 10px 14px; border: 1px solid #334155;
+      border-radius: 8px; background: #0f172a; color: #f1f5f9;
+      font-size: .95rem; outline: none; transition: border-color .15s;
+    }
+    input:focus { border-color: #6366f1; }
+    .field { margin-bottom: 18px; }
+    .hint { color: #64748b; font-size: .78rem; margin-top: 5px; }
+    button[type="submit"], .btn-primary {
+      width: 100%; padding: 11px; background: #6366f1; color: #fff;
+      border: none; border-radius: 8px; font-size: .95rem; font-weight: 500;
+      cursor: pointer; transition: background .15s; margin-top: 4px;
+    }
+    button:hover, .btn-primary:hover { background: #4f46e5; }
+    button:disabled { background: #3730a3; cursor: not-allowed; }
+    .error { color: #f87171; font-size: .85rem; margin-top: 14px; min-height: 20px; text-align: center; }
+    .success { color: #34d399; font-size: .85rem; margin-top: 14px; text-align: center; }
+
+    /* Step indicator */
+    .steps { display: flex; gap: 8px; margin-bottom: 28px; justify-content: center; }
+    .step { width: 28px; height: 4px; border-radius: 2px; background: #334155; transition: background .3s; }
+    .step.active { background: #6366f1; }
+    .step.done   { background: #34d399; }
+
+    /* QR section */
+    #qrSection { display: none; text-align: center; }
+    #qrImg { margin: 16px auto; display: block; border-radius: 8px; background: #fff; padding: 8px; }
+    .secret-code { font-family: monospace; font-size: .85rem; color: #94a3b8;
+                   background: #0f172a; padding: 8px 12px; border-radius: 6px;
+                   word-break: break-all; margin: 8px 0 16px; }
+    .info-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+                padding: 12px 14px; color: #94a3b8; font-size: .82rem; margin-bottom: 18px; line-height: 1.5; }
+    .skip-link { text-align: center; margin-top: 14px; }
+    .skip-link a { color: #64748b; font-size: .82rem; cursor: pointer; text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <h1>🤖 AI Query Runner</h1>
+    <p>Pierwsze uruchomienie — konfiguracja zabezpieczeń</p>
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="s1"></div>
+    <div class="step" id="s2"></div>
+    <div class="step" id="s3"></div>
+  </div>
+
+  <!-- Step 1: Create password -->
+  <div id="step1">
+    <div class="info-box">
+      Ustaw hasło do panelu. Będzie wymagane przy każdym uruchomieniu — szczególnie ważne jeśli używasz aplikacji na serwerze lub w sieci lokalnej.
+    </div>
+    <form id="step1Form">
+      <div class="field">
+        <label for="pw1">Hasło</label>
+        <input type="password" id="pw1" autocomplete="new-password" autofocus required minlength="8">
+        <p class="hint">Minimum 8 znaków</p>
+      </div>
+      <div class="field">
+        <label for="pw2">Powtórz hasło</label>
+        <input type="password" id="pw2" autocomplete="new-password" required>
+      </div>
+      <button type="submit">Dalej →</button>
+      <p class="error" id="err1"></p>
+    </form>
+  </div>
+
+  <!-- Step 2: 2FA setup (optional) -->
+  <div id="step2" style="display:none">
+    <div class="info-box">
+      Weryfikacja dwuskładnikowa (2FA) dodaje dodatkową warstwę ochrony. Przy logowaniu będziesz wpisywać 6-cyfrowy kod z aplikacji na telefonie (Google Authenticator, Authy itp.).
+    </div>
+    <button class="btn-primary" id="setup2faBtn" type="button">Skonfiguruj 2FA</button>
+
+    <div id="qrSection">
+      <p style="color:#94a3b8;font-size:.85rem;margin-bottom:8px;">Zeskanuj kod QR w aplikacji uwierzytelniającej:</p>
+      <img id="qrImg" width="180" height="180" alt="QR kod 2FA">
+      <p style="color:#64748b;font-size:.78rem;margin-bottom:4px;">lub wpisz ręcznie:</p>
+      <div class="secret-code" id="totpSecretDisplay"></div>
+      <div class="field">
+        <label for="totpVerify">Wpisz 6-cyfrowy kod, żeby potwierdzić</label>
+        <input type="text" id="totpVerify" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="letter-spacing:.3em;text-align:center;font-size:1.2rem;">
+      </div>
+      <button class="btn-primary" id="confirm2faBtn" type="button">Aktywuj 2FA</button>
+      <p class="error" id="err2fa"></p>
+    </div>
+
+    <div class="skip-link"><a id="skip2fa">Pomiń — skonfiguruj 2FA później w ustawieniach</a></div>
+    <p class="success" id="ok2fa" style="display:none">✅ 2FA aktywowane!</p>
+  </div>
+
+  <!-- Step 3: Done -->
+  <div id="step3" style="display:none;text-align:center;">
+    <p style="color:#34d399;font-size:2rem;margin-bottom:12px;">✅</p>
+    <p style="color:#f1f5f9;font-weight:600;margin-bottom:8px;">Konfiguracja gotowa</p>
+    <p style="color:#94a3b8;font-size:.88rem;margin-bottom:24px;">Panel jest teraz zabezpieczony. Przechowuj hasło w bezpiecznym miejscu.</p>
+    <button class="btn-primary" id="gotoLogin" type="button">Przejdź do logowania</button>
+  </div>
+</div>
+
+<script>
+  let _totpSecret = null;
+
+  function setStep(n) {
+    [1,2,3].forEach(i => {
+      document.getElementById('step' + i).style.display = i === n ? 'block' : 'none';
+      const s = document.getElementById('s' + i);
+      s.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+    });
+  }
+
+  // Step 1: create password
+  document.getElementById('step1Form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('err1');
+    const pw1 = document.getElementById('pw1').value;
+    const pw2 = document.getElementById('pw2').value;
+    if (pw1 !== pw2) { err.textContent = 'Hasła nie są zgodne.'; return; }
+    if (pw1.length < 8) { err.textContent = 'Hasło musi mieć minimum 8 znaków.'; return; }
+
+    const r = await fetch('/auth/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw1 }),
+    });
+    const data = await r.json();
+    if (r.ok) {
+      setStep(2);
+    } else {
+      err.textContent = data.error || 'Błąd konfiguracji.';
+    }
+  });
+
+  // Step 2: setup 2FA
+  document.getElementById('setup2faBtn').addEventListener('click', async () => {
+    const r    = await fetch('/auth/totp-setup');
+    const data = await r.json();
+    _totpSecret = data.secret;
+    document.getElementById('qrImg').src                = data.qrCode;
+    document.getElementById('totpSecretDisplay').textContent = data.secret;
+    document.getElementById('qrSection').style.display  = 'block';
+    document.getElementById('setup2faBtn').style.display = 'none';
+  });
+
+  document.getElementById('confirm2faBtn').addEventListener('click', async () => {
+    const code = document.getElementById('totpVerify').value;
+    const err  = document.getElementById('err2fa');
+    if (code.length !== 6) { err.textContent = 'Wpisz 6-cyfrowy kod.'; return; }
+    const r = await fetch('/auth/totp-enable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: _totpSecret, code }),
+    });
+    const data = await r.json();
+    if (r.ok) {
+      document.getElementById('qrSection').style.display = 'none';
+      document.getElementById('ok2fa').style.display     = 'block';
+      document.getElementById('skip2fa').style.display   = 'none';
+      setTimeout(() => setStep(3), 1200);
+    } else {
+      err.textContent = data.error || 'Nieprawidłowy kod.';
+    }
+  });
+
+  document.getElementById('skip2fa').addEventListener('click', () => setStep(3));
+
+  document.getElementById('gotoLogin').addEventListener('click', () => {
+    window.location.href = '/login';
+  });
+</script>
+</body>
+</html>

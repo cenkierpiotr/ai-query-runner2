@@ -1,0 +1,44 @@
+{
+  "name": "ai-query-runner",
+  "version": "1.0.0",
+  "description": "Standalone AI query runner: Excel/Sheets → Gemini/Perplexity/Claude (Playwright RPA)",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "server": "tsx src/server.ts",
+    "wizard": "tsx src/wizard.ts",
+    "setup": "npx playwright install chromium",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
+    "@types/multer": "^2.1.0",
+    "bcryptjs": "^3.0.3",
+    "chalk": "^5.6.2",
+    "commander": "^12.1.0",
+    "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
+    "express-session": "^1.19.0",
+    "googleapis": "^144.0.0",
+    "multer": "^2.1.1",
+    "otpauth": "^9.5.1",
+    "playwright": "^1.45.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^4.17.21",
+    "@types/express-session": "^1.19.0",
+    "@types/node": "^20.14.0",
+    "@types/qrcode": "^1.5.6",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.8"
+  }
+}
