@@ -1,0 +1,109 @@
+name: Portable Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            suffix: linux
+            binary: ai-query-runner
+          - os: windows-latest
+            target: bun-windows-x64
+            suffix: windows
+            binary: ai-query-runner.exe
+          - os: macos-latest
+            target: bun-darwin-x64
+            suffix: macos
+            binary: ai-query-runner
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download Chromium
+        run: npx playwright install chromium
+
+      - name: Prepare output directory
+        shell: bash
+        run: mkdir -p dist/portable/public
+
+      - name: Compile binary
+        run: |
+          bun build src/index.ts --compile --target=${{ matrix.target }} \
+            --external playwright --external playwright-core --external chromium-bidi \
+            --outfile=dist/portable/${{ matrix.binary }}
+
+      - name: Copy public assets
+        shell: bash
+        run: cp -r src/public/. dist/portable/public/
+
+      - name: Copy playwright runtime (external dependency)
+        shell: bash
+        run: |
+          mkdir -p dist/portable/node_modules
+          for pkg in playwright playwright-core; do
+            [ -d "node_modules/$pkg" ] && cp -r "node_modules/$pkg" dist/portable/node_modules/
+          done
+
+      - name: Copy Chromium (Linux / macOS)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          CHROMIUM_DIR=$(node -e "
+            const {chromium} = require('playwright');
+            chromium.executablePath().then(p => {
+              const path = require('path');
+              console.log(path.dirname(path.dirname(p)));
+            });
+          ")
+          cp -r "$CHROMIUM_DIR" dist/portable/chromium
+
+      - name: Copy Chromium (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $chromiumExe = node -e "const {chromium}=require('playwright');chromium.executablePath().then(p=>process.stdout.write(p))"
+          $chromiumDir = Split-Path (Split-Path $chromiumExe -Parent) -Parent
+          Copy-Item -Recurse -Force $chromiumDir dist\portable\chromium
+
+      - name: Create .portable marker
+        shell: bash
+        run: touch dist/portable/.portable
+
+      - name: Create ZIP (Linux / macOS)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          cd dist
+          zip -r ai-query-runner-portable-${{ matrix.suffix }}.zip portable/
+
+      - name: Create ZIP (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\portable\* `
+            -DestinationPath dist\ai-query-runner-portable-${{ matrix.suffix }}.zip -Force
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ai-query-runner-portable-${{ matrix.suffix }}.zip
