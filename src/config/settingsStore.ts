@@ -39,6 +39,8 @@ export interface UserSettings {
   // xAI (Grok)
   xaiApiKey?:                string;
   xaiModel?:                 string;
+  // Open WebUI (browser mode)
+  openwebuiUrl?:             string;
 }
 
 // Fields that contain secrets and should be encrypted at rest
