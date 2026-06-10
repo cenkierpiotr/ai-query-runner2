@@ -19,6 +19,7 @@ import { GoogleTarget } from './targets/GoogleTarget.js';
 import { CopilotTarget } from './targets/CopilotTarget.js';
 import { MistralTarget } from './targets/MistralTarget.js';
 import { DeepSeekTarget } from './targets/DeepSeekTarget.js';
+import { OpenWebUITarget } from './targets/OpenWebUITarget.js';
 
 export type BridgeState = 'idle' | 'launching' | 'waiting_login' | 'ready' | 'error';
 
@@ -37,6 +38,7 @@ function getTarget(): BrowserTarget {
     case 'copilot':    return new CopilotTarget();
     case 'mistral':    return new MistralTarget();
     case 'deepseek':   return new DeepSeekTarget();
+    case 'openwebui':  return new OpenWebUITarget(config.openwebuiUrl);
     default:           return new GeminiTarget();
   }
 }
