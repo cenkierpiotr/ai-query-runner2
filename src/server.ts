@@ -51,14 +51,9 @@ import { requireAuth, checkCsrf, requireSetup } from './auth/middleware.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT      = resolve(__dirname, '..');
-
-import { IS_PORTABLE, DATA_DIR, EXEC_DIR } from './utils/portable.js';
-
-// In portable mode static files live next to the binary; in dev mode inside src/
-const PUBLIC    = IS_PORTABLE ? join(EXEC_DIR, 'public') : join(__dirname, 'public');
-// All mutable data goes into DATA_DIR (next to binary in portable, cwd in dev)
-const UPLOADS   = join(DATA_DIR, '.tmp-uploads');
-const PAUSE_FLAG = join(DATA_DIR, '.aqr-pause');
+const PUBLIC    = join(__dirname, 'public');
+const UPLOADS   = join(ROOT, '.tmp-uploads');
+const PAUSE_FLAG = resolve(ROOT, '.aqr-pause');
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 const program = new Command();
@@ -123,12 +118,11 @@ interface RunRecord {
   outputFile: string | null;
 }
 
-const RESULTS_DIR  = join(DATA_DIR, '.results');
-const HISTORY_FILE = join(RESULTS_DIR, 'history.json');
+const HISTORY_FILE = resolve(ROOT, '.results', 'history.json');
 
 function loadHistory(): RunRecord[] {
   try {
-    mkdirSync(RESULTS_DIR, { recursive: true });
+    mkdirSync(resolve(ROOT, '.results'), { recursive: true });
     if (!existsSync(HISTORY_FILE)) return [];
     return JSON.parse(readFileSync(HISTORY_FILE, 'utf8'));
   } catch { return []; }
@@ -312,6 +306,8 @@ app.get('/api/settings', (_req, res) => {
     customEndpointUrl:   s.customEndpointUrl  ?? '',
     customEndpointModel: s.customEndpointModel ?? '',
     customEndpointKey:   s.customEndpointKey ? '***' : '',
+    // Open WebUI
+    openwebuiUrl:        s.openwebuiUrl ?? 'http://localhost:3000',
     // Groq
     groqModel:           s.groqModel ?? 'llama-3.3-70b-versatile',
     groqApiKey:          s.groqApiKey ? '***' : '',
@@ -343,6 +339,7 @@ app.post('/api/settings', (req, res) => {
       'dbType', 'dbUrl', 'dbTable',
       'ollamaUrl', 'ollamaModel',
       'customEndpointUrl', 'customEndpointKey', 'customEndpointModel',
+      'openwebuiUrl',
       'groqApiKey', 'groqModel',
       'xaiApiKey', 'xaiModel',
     ];
@@ -441,7 +438,7 @@ app.post('/api/generate-excel', async (req, res) => {
   if (!Array.isArray(prompts) || !prompts.length) {
     return void res.status(400).json({ error: 'Brak promptów.' });
   }
-  const tmpPath = join(DATA_DIR, `.tmp-generated-${Date.now()}.xlsx`);
+  const tmpPath = join(ROOT, `.tmp-generated-${Date.now()}.xlsx`);
   try {
     const ExcelJS = (await import('exceljs')).default;
     const wb = new ExcelJS.Workbook();
@@ -559,7 +556,7 @@ app.get('/api/progress', (req, res) => {
 
 // Download Excel template
 app.get('/api/template', async (_req, res) => {
-  const tmpPath = join(DATA_DIR, `.tmp-template-${Date.now()}.xlsx`);
+  const tmpPath = join(ROOT, `.tmp-template-${Date.now()}.xlsx`);
   try {
     await createTemplateExcel(tmpPath);
     const buf = readFileSync(tmpPath);
@@ -610,7 +607,7 @@ app.post('/api/run', upload.single('file'), async (req, res) => {
   } = req.body ?? {};
   const file = req.file;
 
-  const VALID_TARGETS = ['gemini', 'perplexity', 'claude', 'google', 'copilot', 'mistral', 'deepseek', 'google-api', 'duckduckgo', 'gemini-api', 'openrouter', 'ollama', 'groq', 'xai', 'custom'];
+  const VALID_TARGETS = ['gemini', 'perplexity', 'claude', 'google', 'copilot', 'mistral', 'deepseek', 'openwebui', 'google-api', 'duckduckgo', 'gemini-api', 'openrouter', 'ollama', 'groq', 'xai', 'custom'];
   if (target && !VALID_TARGETS.includes(target)) {
     return void res.status(400).json({ error: `Invalid target "${target}". Valid: ${VALID_TARGETS.join(', ')}` });
   }
@@ -626,8 +623,9 @@ app.post('/api/run', upload.single('file'), async (req, res) => {
     inputArg  = safePath;
     lastTmpFile = safePath;
     // Write results to a separate output file so we can serve it after completion
-    mkdirSync(RESULTS_DIR, { recursive: true });
-    outputArg = join(RESULTS_DIR, `result-${Date.now()}.xlsx`);
+    const resultsDir = join(ROOT, '.results');
+    mkdirSync(resultsDir, { recursive: true });
+    outputArg = join(resultsDir, `result-${Date.now()}.xlsx`);
     lastOutputFile = outputArg;
     // Pre-copy input → output so ExcelWriter can open an existing file on first write
     copyFileSync(safePath, outputArg);
@@ -642,24 +640,23 @@ app.post('/api/run', upload.single('file'), async (req, res) => {
     return void res.status(400).json({ error: 'Wymagany plik Excel lub adres Google Sheets.' });
   }
 
-  // Build batch runner args (shared between dev and portable mode)
-  const batchArgs: string[] = ['--input', inputArg, '--target', target || 'gemini'];
-  if (outputArg)        batchArgs.push('--output', outputArg);
-  else if (sheetsOut)   batchArgs.push('--output', sheetsOut);
-  if (skipDone === '1') batchArgs.push('--skip-done');
-  if (hl === '1')       batchArgs.push('--headless');
-  if (limit && parseInt(limit) > 0) batchArgs.push('--limit', limit);
-  if (jsonFormat === '1') batchArgs.push('--json-format');
-  if (systemPrompt)     batchArgs.push('--system-prompt', systemPrompt);
-  if (schStart)         batchArgs.push('--sch-start', schStart);
-  if (schEnd)           batchArgs.push('--sch-end', schEnd);
-  if (schDays)          batchArgs.push('--sch-days', schDays);
-  if (pauseMin)         batchArgs.push('--pause-min', pauseMin);
-  if (pauseMax)         batchArgs.push('--pause-max', pauseMax);
-  if (targets)          batchArgs.push('--targets', targets);
-  if (exportFormats)    batchArgs.push('--export', exportFormats);
-  if (preview === '1')  batchArgs.push('--preview');
-  if (stripMarkdown === '1') batchArgs.push('--strip-markdown');
+  const args: string[] = ['tsx', 'src/main.ts', '--input', inputArg, '--target', target || 'gemini'];
+  if (outputArg)        args.push('--output', outputArg);
+  else if (sheetsOut)   args.push('--output', sheetsOut);
+  if (skipDone === '1') args.push('--skip-done');
+  if (hl === '1')       args.push('--headless');
+  if (limit && parseInt(limit) > 0) args.push('--limit', limit);
+  if (jsonFormat === '1') args.push('--json-format');
+  if (systemPrompt)     args.push('--system-prompt', systemPrompt);
+  if (schStart)         args.push('--sch-start', schStart);
+  if (schEnd)           args.push('--sch-end', schEnd);
+  if (schDays)          args.push('--sch-days', schDays);
+  if (pauseMin)         args.push('--pause-min', pauseMin);
+  if (pauseMax)         args.push('--pause-max', pauseMax);
+  if (targets)              args.push('--targets', targets);
+  if (exportFormats)        args.push('--export', exportFormats);
+  if (preview === '1')      args.push('--preview');
+  if (stripMarkdown === '1') args.push('--strip-markdown');
 
   // Create history record for this run
   const runId = `run-${Date.now()}`;
@@ -677,21 +674,7 @@ app.post('/api/run', upload.single('file'), async (req, res) => {
 
   res.json({ ok: true });
 
-  // In portable mode the binary spawns itself with --batch flag.
-  // In dev mode we use npx tsx src/main.ts (standard dev flow).
-  if (IS_PORTABLE) {
-    activeBatch = spawn(process.execPath, ['--batch', ...batchArgs], {
-      cwd:   DATA_DIR,
-      env:   { ...process.env, AQR_DATA_DIR: DATA_DIR },
-      stdio: 'pipe',
-    });
-  } else {
-    activeBatch = spawn('npx', ['tsx', 'src/main.ts', ...batchArgs], {
-      cwd:   ROOT,
-      env:   { ...process.env },
-      stdio: 'pipe',
-    });
-  }
+  activeBatch = spawn('npx', args, { cwd: ROOT, env: { ...process.env }, stdio: 'pipe' });
 
   let doneCount = 0;
   const totalRx = /Przetwarzam (\d+) zapytań|Processing (\d+) queries/;
