@@ -1,10 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { resolve } from 'path';
 import { encrypt, decrypt, isEncrypted } from '../auth/crypto.js';
 import { getEncryptionKey } from '../auth/authStore.js';
-import { DATA_DIR } from '../utils/portable.js';
 
-const SETTINGS_FILE = join(DATA_DIR, '.aqr-settings.json');
+const SETTINGS_FILE = resolve(process.cwd(), '.aqr-settings.json');
 
 export interface UserSettings {
   dailyQueryLimit?:          number;
@@ -40,6 +39,8 @@ export interface UserSettings {
   // xAI (Grok)
   xaiApiKey?:                string;
   xaiModel?:                 string;
+  // Open WebUI (browser mode)
+  openwebuiUrl?:             string;
 }
 
 // Fields that contain secrets and should be encrypted at rest
