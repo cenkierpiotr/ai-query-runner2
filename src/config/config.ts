@@ -7,7 +7,7 @@
 
 import { config as dotenvConfig } from 'dotenv';
 import { existsSync, readFileSync } from 'fs';
-import { resolve, dirname, join } from 'path';
+import { resolve } from 'path';
 import { loadSettings } from './settingsStore.js';
 
 // Load .env from project root (silently ignored if not present)
@@ -15,7 +15,7 @@ dotenvConfig({ path: resolve(process.cwd(), '.env') });
 
 interface Config {
   // Browser
-  targetSite: 'gemini' | 'perplexity' | 'claude' | 'google' | 'google-api' | 'duckduckgo' | 'copilot' | 'mistral' | 'deepseek' | 'gemini-api' | 'openrouter' | 'ollama' | 'groq' | 'xai' | 'custom';
+  targetSite: 'gemini' | 'perplexity' | 'claude' | 'google' | 'google-api' | 'duckduckgo' | 'copilot' | 'mistral' | 'deepseek' | 'gemini-api' | 'openrouter' | 'ollama' | 'groq' | 'xai' | 'custom' | 'openwebui';
   headless: boolean;
   chromiumPath: string | null;
   profileDir: string;
@@ -64,6 +64,9 @@ interface Config {
   customEndpointUrl: string | null;
   customEndpointKey: string | null;
   customEndpointModel: string | null;
+
+  // Open WebUI (browser mode)
+  openwebuiUrl: string;
 }
 
 // ── Load optional config.json ──────────────────────────────────────────────────
@@ -78,17 +81,6 @@ const s = loadSettings();
 // ── Cross-platform Chromium detection ─────────────────────────────────────────
 function detectChromium(): string | null {
   const platform = process.platform;
-
-  // Portable build: check for bundled Chromium next to the binary first
-  const execBinDir = dirname(process.execPath);
-  const portableChromium: Record<string, string> = {
-    linux:  join(execBinDir, 'chromium', 'chrome'),
-    darwin: join(execBinDir, 'chromium', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
-    win32:  join(execBinDir, 'chromium', 'chrome.exe'),
-  };
-  const pp = portableChromium[platform] ?? portableChromium['linux']!;
-  if (existsSync(pp)) return pp;
-
   const candidates: Record<string, string[]> = {
     linux: [
       '/usr/lib/chromium/chromium',
@@ -166,4 +158,6 @@ export const config: Config = {
   customEndpointUrl:   s.customEndpointUrl   ?? process.env['CUSTOM_ENDPOINT_URL']   ?? null,
   customEndpointKey:   s.customEndpointKey   ?? process.env['CUSTOM_ENDPOINT_KEY']   ?? null,
   customEndpointModel: s.customEndpointModel ?? process.env['CUSTOM_ENDPOINT_MODEL'] ?? null,
+
+  openwebuiUrl: s.openwebuiUrl ?? process.env['OPENWEBUI_URL'] ?? 'http://localhost:3000',
 };
