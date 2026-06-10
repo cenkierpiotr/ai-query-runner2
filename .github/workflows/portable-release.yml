@@ -144,18 +144,56 @@ jobs:
           tag_name: ${{ github.ref_name || inputs.tag }}
           name: ${{ github.ref_name || inputs.tag }}
           body: |
-            ## Pobieranie / Download
+            ## 🤖 AI Query Runner ${{ github.ref_name || inputs.tag }}
+
+            Dwie wersje do wyboru — pobierz tę która pasuje do Twojego przypadku.
+
+            ---
+
+            ## 📦 Wersja portable — uruchom bez instalacji
+
+            Skompilowana do jednego folderu. Nie wymaga Node.js ani npm. Pobierz, rozpakuj, uruchom.
 
             | System | Plik |
             |--------|------|
-            | Linux x64 | `ai-query-runner-linux-x64.zip` |
-            | Windows x64 | `ai-query-runner-windows-x64.zip` |
-            | macOS x64 | `ai-query-runner-macos-x64.zip` |
+            | 🐧 Linux x64 | `ai-query-runner-linux-x64.zip` |
+            | 🪟 Windows x64 | `ai-query-runner-windows-x64.zip` |
+            | 🍎 macOS x64 | `ai-query-runner-macos-x64.zip` |
 
-            ### Uruchomienie / How to run
-            1. Pobierz ZIP dla swojego systemu / Download ZIP for your OS
-            2. Rozpakuj do dowolnego folderu / Extract to any folder
-            3. **Linux/macOS:** `./ai-query-runner` | **Windows:** kliknij `ai-query-runner.exe`
-            4. Panel otworzy się na / Panel opens at: `http://localhost:3535`
+            **Jak uruchomić:**
+            1. Pobierz ZIP dla swojego systemu z listy Assets poniżej
+            2. Rozpakuj do dowolnego folderu
+            3. Uruchom:
+               - **Linux/macOS:** `./ai-query-runner` w terminalu (może wymagać `chmod +x ai-query-runner`)
+               - **Windows:** kliknij dwukrotnie `ai-query-runner.exe`
+            4. Panel otwiera się automatycznie pod adresem **http://localhost:3535**
+
+            > Duży rozmiar wynika z dołączonego Chromium (~150–450 MB zależnie od platformy) — przeglądarka jest potrzebna do trybu automatyzacji (Gemini, Claude, Perplexity itd.). Tryb API (Gemini API, OpenRouter, Ollama) nie używa Chromium.
+
+            ---
+
+            ## 🛠️ Wersja standardowa — instalacja z kodem źródłowym
+
+            Wymaga Node.js 18+. Lepsza do długoterminowego użytku i własnych modyfikacji.
+
+            ```bash
+            git clone https://github.com/cenkierpiotr/ai-query-runner2.git
+            cd ai-query-runner2
+            bash install.sh        # Linux/macOS
+            # lub install.bat      # Windows
+            ```
+
+            Alternatywnie pobierz **Source code (zip)** z Assets poniżej i rozpakuj ręcznie.
+
+            ---
+
+            ## ❓ Którą wersję wybrać?
+
+            | | Portable | Standardowa |
+            |--|---------|------------|
+            | Wymaga Node.js | ❌ Nie | ✅ Tak |
+            | Rozmiar | ~200–500 MB | ~400–600 MB po instalacji |
+            | Aktualizacje | Pobierz nowy ZIP | `git pull` + `npm install` |
+            | Własne modyfikacje | Trudniejsze | Łatwe |
           files: artifacts/*.zip
           generate_release_notes: false
