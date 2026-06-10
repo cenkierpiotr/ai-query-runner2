@@ -15,7 +15,7 @@ dotenvConfig({ path: resolve(process.cwd(), '.env') });
 
 interface Config {
   // Browser
-  targetSite: 'gemini' | 'perplexity' | 'claude' | 'google' | 'google-api' | 'duckduckgo' | 'copilot' | 'mistral' | 'deepseek' | 'gemini-api' | 'openrouter' | 'ollama' | 'groq' | 'xai' | 'custom';
+  targetSite: 'gemini' | 'perplexity' | 'claude' | 'google' | 'google-api' | 'duckduckgo' | 'copilot' | 'mistral' | 'deepseek' | 'gemini-api' | 'openrouter' | 'ollama' | 'groq' | 'xai' | 'custom' | 'openwebui';
   headless: boolean;
   chromiumPath: string | null;
   profileDir: string;
@@ -64,6 +64,9 @@ interface Config {
   customEndpointUrl: string | null;
   customEndpointKey: string | null;
   customEndpointModel: string | null;
+
+  // Open WebUI (browser mode)
+  openwebuiUrl: string;
 }
 
 // ── Load optional config.json ──────────────────────────────────────────────────
@@ -155,4 +158,6 @@ export const config: Config = {
   customEndpointUrl:   s.customEndpointUrl   ?? process.env['CUSTOM_ENDPOINT_URL']   ?? null,
   customEndpointKey:   s.customEndpointKey   ?? process.env['CUSTOM_ENDPOINT_KEY']   ?? null,
   customEndpointModel: s.customEndpointModel ?? process.env['CUSTOM_ENDPOINT_MODEL'] ?? null,
+
+  openwebuiUrl: s.openwebuiUrl ?? process.env['OPENWEBUI_URL'] ?? 'http://localhost:3000',
 };
