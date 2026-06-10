@@ -266,6 +266,7 @@ i automatycznie tworzy dodatkowe kolumny w pliku:
 | `copilot` | copilot.microsoft.com | Opcjonalne | ~20 zapytań bez konta; więcej z kontem Microsoft |
 | `mistral` | chat.mistral.ai | Tak (darmowe) | Europejski model, GDPR-friendly |
 | `deepseek` | chat.deepseek.com | Tak (darmowe) | Dobry do analizy i kodu |
+| `openwebui` | własna instancja | Opcjonalne | Self-hosted Open WebUI — dowolne modele Ollama przez UI |
 
 ### Wyszukiwarki — bez przeglądarki (fetch)
 
@@ -301,6 +302,17 @@ Ollama pozwala uruchomić modele AI lokalnie — bez dostępu do internetu, bez 
    - **Ollama URL:** `http://localhost:11434` (domyślnie) lub adres zdalnego serwera
    - **Ollama Model:** nazwa modelu, np. `llama3.2` lub `qwen2.5:7b-instruct-q4_K_M`
 4. Kliknij ↻ przy polu modelu — lista dostępnych modeli załaduje się automatycznie
+
+#### Konfiguracja Open WebUI (przeglądarka)
+
+[Open WebUI](https://github.com/open-webui/open-webui) to self-hosted interfejs webowy dla modeli Ollama i innych. Tryb `openwebui` steruje nim przez przeglądarkę — przydatny gdy masz własną instancję bez konfiguracji API.
+
+1. Uruchom swoją instancję Open WebUI (domyślnie `http://localhost:3000`)
+2. W ⚙️ Ustawienia → zakładka „Przeglądarka" wpisz adres w polu **Open WebUI URL** (domyślnie `http://localhost:3000`)
+3. Wybierz target `openwebui` i uruchom zadanie
+4. Jeśli instancja ma włączone logowanie — narzędzie czeka na ręczne zalogowanie przy pierwszym uruchomieniu (sesja zostaje zapamiętana)
+
+> **Alternatywa bez przeglądarki:** Open WebUI wystawia API kompatybilne z OpenAI pod `/api/v1/chat/completions`. Możesz użyć targetu `custom` z URL `http://localhost:3000` i kluczem API z ustawień Open WebUI — szybciej i bez okna przeglądarki.
 
 #### Konfiguracja Custom Endpoint
 
