@@ -306,6 +306,8 @@ app.get('/api/settings', (_req, res) => {
     customEndpointUrl:   s.customEndpointUrl  ?? '',
     customEndpointModel: s.customEndpointModel ?? '',
     customEndpointKey:   s.customEndpointKey ? '***' : '',
+    // Open WebUI
+    openwebuiUrl:        s.openwebuiUrl ?? 'http://localhost:3000',
     // Groq
     groqModel:           s.groqModel ?? 'llama-3.3-70b-versatile',
     groqApiKey:          s.groqApiKey ? '***' : '',
@@ -337,6 +339,7 @@ app.post('/api/settings', (req, res) => {
       'dbType', 'dbUrl', 'dbTable',
       'ollamaUrl', 'ollamaModel',
       'customEndpointUrl', 'customEndpointKey', 'customEndpointModel',
+      'openwebuiUrl',
       'groqApiKey', 'groqModel',
       'xaiApiKey', 'xaiModel',
     ];
@@ -604,7 +607,7 @@ app.post('/api/run', upload.single('file'), async (req, res) => {
   } = req.body ?? {};
   const file = req.file;
 
-  const VALID_TARGETS = ['gemini', 'perplexity', 'claude', 'google', 'copilot', 'mistral', 'deepseek', 'google-api', 'duckduckgo', 'gemini-api', 'openrouter', 'ollama', 'groq', 'xai', 'custom'];
+  const VALID_TARGETS = ['gemini', 'perplexity', 'claude', 'google', 'copilot', 'mistral', 'deepseek', 'openwebui', 'google-api', 'duckduckgo', 'gemini-api', 'openrouter', 'ollama', 'groq', 'xai', 'custom'];
   if (target && !VALID_TARGETS.includes(target)) {
     return void res.status(400).json({ error: `Invalid target "${target}". Valid: ${VALID_TARGETS.join(', ')}` });
   }
