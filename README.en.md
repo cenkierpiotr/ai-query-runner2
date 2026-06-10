@@ -266,6 +266,7 @@ and automatically creates additional columns in the file:
 | `copilot` | copilot.microsoft.com | Optional | ~20 queries without account; more with Microsoft account |
 | `mistral` | chat.mistral.ai | Yes (free) | European model, GDPR-friendly |
 | `deepseek` | chat.deepseek.com | Yes (free) | Good for analysis and code |
+| `openwebui` | own instance | Optional | Self-hosted Open WebUI — any Ollama models via UI |
 
 ### Search engines — no browser (fetch)
 
@@ -301,6 +302,17 @@ Ollama allows running AI models locally — without internet access, without cos
    - **Ollama URL:** `http://localhost:11434` (default) or the remote server address
    - **Ollama Model:** model name, e.g., `llama3.2` or `qwen2.5:7b-instruct-q4_K_M`
 4. Click ↻ next to the model field — the list of available models will load automatically
+
+#### Open WebUI configuration (browser mode)
+
+[Open WebUI](https://github.com/open-webui/open-webui) is a self-hosted web interface for Ollama and other models. The `openwebui` target controls it via browser — useful when you have your own instance without API key setup.
+
+1. Start your Open WebUI instance (default `http://localhost:3000`)
+2. In ⚙️ Settings → "Browser" tab, enter the address in the **Open WebUI URL** field (default `http://localhost:3000`)
+3. Select the `openwebui` target and run the task
+4. If your instance has login enabled — the tool will wait for manual login on first run (session is remembered)
+
+> **No-browser alternative:** Open WebUI exposes an OpenAI-compatible API at `/api/v1/chat/completions`. Use the `custom` target with URL `http://localhost:3000` and an API key from Open WebUI settings — faster and without a browser window.
 
 #### Custom Endpoint configuration
 
