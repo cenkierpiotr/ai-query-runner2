@@ -1,0 +1,161 @@
+name: Portable Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            zip_name: ai-query-runner-linux-x64.zip
+            binary: ai-query-runner
+          - os: windows-latest
+            target: bun-windows-x64
+            zip_name: ai-query-runner-windows-x64.zip
+            binary: ai-query-runner.exe
+          - os: macos-latest
+            target: bun-darwin-x64
+            zip_name: ai-query-runner-macos-x64.zip
+            binary: ai-query-runner
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download Chromium
+        run: npx playwright install chromium
+
+      - name: Prepare output directory
+        shell: bash
+        run: mkdir -p dist/portable/public
+
+      - name: Compile binary
+        shell: bash
+        run: |
+          bun build src/index.ts --compile --target=${{ matrix.target }} \
+            --external playwright --external playwright-core --external chromium-bidi \
+            --outfile=dist/portable/${{ matrix.binary }}
+
+      - name: Copy public assets
+        shell: bash
+        run: cp -r src/public/. dist/portable/public/
+
+      - name: Copy playwright runtime (external dependency)
+        shell: bash
+        run: |
+          mkdir -p dist/portable/node_modules
+          for pkg in playwright playwright-core; do
+            [ -d "node_modules/$pkg" ] && cp -r "node_modules/$pkg" dist/portable/node_modules/
+          done
+
+      - name: Copy Chromium (Linux / macOS)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          CHROMIUM_DIR=$(node -e "
+            const {chromium} = require('playwright');
+            const p = chromium.executablePath();
+            if (typeof p === 'string') {
+              const path = require('path');
+              console.log(path.dirname(path.dirname(p)));
+            } else {
+              p.then(exe => {
+                const path = require('path');
+                console.log(path.dirname(path.dirname(exe)));
+              });
+            }
+          ")
+          cp -r "$CHROMIUM_DIR" dist/portable/chromium
+
+      - name: Copy Chromium (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $chromiumExe = node -e "
+            const {chromium}=require('playwright');
+            const p=chromium.executablePath();
+            if(typeof p==='string'){process.stdout.write(p)}else{p.then(exe=>process.stdout.write(exe))}
+          "
+          $chromiumDir = Split-Path (Split-Path $chromiumExe -Parent) -Parent
+          Copy-Item -Recurse -Force $chromiumDir dist\portable\chromium
+
+      - name: Create .portable marker
+        shell: bash
+        run: touch dist/portable/.portable
+
+      - name: Create ZIP (Linux / macOS)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          cd dist
+          zip -r ${{ matrix.zip_name }} portable/
+
+      - name: Create ZIP (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\portable\* `
+            -DestinationPath dist\${{ matrix.zip_name }} -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.zip_name }}
+          path: dist/${{ matrix.zip_name }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          name: ${{ github.ref_name || inputs.tag }}
+          body: |
+            ## Pobieranie / Download
+
+            | System | Plik |
+            |--------|------|
+            | Linux x64 | `ai-query-runner-linux-x64.zip` |
+            | Windows x64 | `ai-query-runner-windows-x64.zip` |
+            | macOS x64 | `ai-query-runner-macos-x64.zip` |
+
+            ### Uruchomienie / How to run
+            1. Pobierz ZIP dla swojego systemu / Download ZIP for your OS
+            2. Rozpakuj do dowolnego folderu / Extract to any folder
+            3. **Linux/macOS:** `./ai-query-runner` | **Windows:** kliknij `ai-query-runner.exe`
+            4. Panel otworzy się na / Panel opens at: `http://localhost:3535`
+          files: artifacts/*.zip
+          generate_release_notes: false
